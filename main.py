@@ -1,11 +1,5 @@
 # ============================================================
-# Traffic Signal Control using Deep Q-Network (DQN)
-# Includes:
-# - Fixed Baseline Comparison
-# - Training Loop
-# - Model Saving
-# - Evaluation Mode
-# - Reward Plotting
+# Adaptive Traffic Signal Control using DQN
 # ============================================================
 
 from env.traffic_env import TrafficEnv
@@ -15,17 +9,29 @@ from memory.replay_buffer import ReplayBuffer
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import time
 
 
 # ============================================================
-# FIXED-TIMING BASELINE CONTROLLER
+# CONFIGURATION FLAGS
+# ============================================================
+
+TRAIN_WITH_GUI = False      # True → visualize training (slow)
+EVAL_WITH_GUI = True        # True → visualize evaluation
+EPISODES = 500
+MAX_STEPS = 200
+
+# Target real-time evaluation duration (seconds)
+TARGET_EVAL_DURATION = 60
+EVAL_DELAY = TARGET_EVAL_DURATION / MAX_STEPS
+
+
+# ============================================================
+# Fixed Baseline Controller
 # ============================================================
 
 def run_fixed_baseline(env, steps=200):
-    """
-    Runs a simple fixed phase switching controller.
-    Used as a benchmark for comparison.
-    """
+
     state = env.reset()
     total_waiting = 0
 
@@ -41,7 +47,7 @@ def run_fixed_baseline(env, steps=200):
 
         _, reward, done = env.step(phase)
 
-        # Reverse delta reward to approximate waiting accumulation
+        # Reverse delta waiting reward
         total_waiting += -reward
         counter += 1
 
@@ -49,41 +55,49 @@ def run_fixed_baseline(env, steps=200):
 
 
 # ============================================================
-# DQN EVALUATION MODE (No Learning, No Exploration)
+# DQN Evaluation Mode (Real-Time GUI)
 # ============================================================
 
-def run_dqn_evaluation(env, agent, steps=200):
-    """
-    Runs trained DQN with epsilon = 0
-    to measure true learned performance.
-    """
-    state = env.reset()
+def run_dqn_evaluation(agent):
+
+    print("\nLaunching SUMO for DQN evaluation...")
+
+    eval_env = TrafficEnv(gui=EVAL_WITH_GUI)
+    eval_env.start()
+
+    state = eval_env.get_state()
     total_waiting = 0
     done = False
 
-    # Disable exploration
+    # Pure exploitation
     agent.epsilon = 0.0
 
     while not done:
+
         action = agent.select_action(state)
-        next_state, reward, done = env.step(action)
+        next_state, reward, done = eval_env.step(action)
 
         total_waiting += -reward
         state = next_state
 
+        # Slow down for real-time visualization
+        if EVAL_WITH_GUI:
+            time.sleep(EVAL_DELAY)
+
+    eval_env.close()
     return total_waiting
 
 
 # ============================================================
-# MAIN TRAINING SCRIPT
+# MAIN EXECUTION
 # ============================================================
 
 if __name__ == "__main__":
 
-    # ---------------------------
-    # Initialize Environment
-    # ---------------------------
-    env = TrafficEnv()
+    # --------------------------------------------------------
+    # Initialize Training Environment
+    # --------------------------------------------------------
+    env = TrafficEnv(gui=TRAIN_WITH_GUI)
     env.start()
 
     state_dim = len(env.get_state())
@@ -92,22 +106,22 @@ if __name__ == "__main__":
     agent = DQNAgent(state_dim, action_dim)
     replay_buffer = ReplayBuffer(50000)
 
-    episodes = 500
     episode_rewards = []
 
-    # ============================================================
-    # BASELINE COMPARISON
-    # ============================================================
+    # --------------------------------------------------------
+    # Baseline Comparison
+    # --------------------------------------------------------
     print("Running fixed baseline...")
-    baseline_wait = run_fixed_baseline(env)
+    baseline_wait = run_fixed_baseline(env, steps=MAX_STEPS)
     print("Baseline total waiting:", round(baseline_wait, 2))
     print("-" * 50)
 
-    # ============================================================
-    # DQN TRAINING LOOP
-    # ============================================================
+    # --------------------------------------------------------
+    # Training Loop
+    # --------------------------------------------------------
+    print("Starting DQN training...\n")
 
-    for episode in range(episodes):
+    for episode in range(EPISODES):
 
         state = env.reset()
         total_reward = 0
@@ -127,42 +141,39 @@ if __name__ == "__main__":
         episode_rewards.append(total_reward)
 
         print(
-            f"Episode {episode+1}, "
-            f"Total Reward: {round(total_reward, 2)}, "
+            f"Episode {episode+1}/{EPISODES} | "
+            f"Reward: {round(total_reward, 2)} | "
             f"Epsilon: {agent.epsilon:.3f}"
         )
 
-    print("Training completed.")
+    env.close()
+    print("\nTraining completed.")
 
-    # ============================================================
-    # SAVE TRAINED MODEL
-    # ============================================================
+    # --------------------------------------------------------
+    # Save Model
+    # --------------------------------------------------------
     torch.save(agent.policy_net.state_dict(), "dqn_model.pth")
     print("Model saved as dqn_model.pth")
 
-    # ============================================================
-    # EVALUATION MODE
-    # ============================================================
-    print("-" * 50)
-    print("Running DQN evaluation...")
+    # --------------------------------------------------------
+    # Evaluation Mode
+    # --------------------------------------------------------
+    dqn_wait = run_dqn_evaluation(agent)
 
-    dqn_wait = run_dqn_evaluation(env, agent)
-
+    print("\n------------------ FINAL RESULTS ------------------")
     print("Baseline total waiting:", round(baseline_wait, 2))
     print("DQN total waiting:", round(dqn_wait, 2))
     print("Average reward (last 50 episodes):",
           round(np.mean(episode_rewards[-50:]), 3))
+    print("---------------------------------------------------")
 
-    # ============================================================
-    # TRAINING PERFORMANCE PLOT
-    # ============================================================
-
+    # --------------------------------------------------------
+    # Plot Training Performance
+    # --------------------------------------------------------
     plt.figure(figsize=(10, 5))
 
-    # Raw episode rewards
     plt.plot(episode_rewards, label="Raw Reward")
 
-    # Moving average smoothing
     window = 10
     if len(episode_rewards) >= window:
         moving_avg = np.convolve(
@@ -170,7 +181,6 @@ if __name__ == "__main__":
             np.ones(window) / window,
             mode='valid'
         )
-
         plt.plot(
             range(window - 1, len(episode_rewards)),
             moving_avg,
@@ -182,5 +192,3 @@ if __name__ == "__main__":
     plt.title("DQN Training Performance")
     plt.legend()
     plt.show()
-
-    env.close()
