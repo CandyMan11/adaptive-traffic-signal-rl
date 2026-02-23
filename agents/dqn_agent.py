@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import random
 import numpy as np
 
 
-class QNetwork(nn.Module):
+class DQN(nn.Module):
     def __init__(self, state_dim, action_dim):
-        super(QNetwork, self).__init__()
+        super(DQN, self).__init__()
 
         self.net = nn.Sequential(
             nn.Linear(state_dim, 128),
@@ -21,30 +22,34 @@ class QNetwork(nn.Module):
 
 
 class DQNAgent:
-    def __init__(self, state_dim, action_dim, lr=5e-4, gamma=0.99):
+    def __init__(self, state_dim, action_dim):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.q_network = QNetwork(state_dim, action_dim).to(self.device)
-        self.target_network = QNetwork(state_dim, action_dim).to(self.device)
-        self.target_network.load_state_dict(self.q_network.state_dict())
+        self.policy_net = DQN(state_dim, action_dim).to(self.device)
+        self.target_net = DQN(state_dim, action_dim).to(self.device)
+        self.target_net.load_state_dict(self.policy_net.state_dict())
 
-        self.optimizer = optim.Adam(self.q_network.parameters(), lr=lr)
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=5e-4)  # ↓ smaller LR
+        self.criterion = nn.MSELoss()
 
-        self.gamma = gamma
-        self.action_dim = action_dim
-
+        self.gamma = 0.99
         self.epsilon = 1.0
-        self.epsilon_decay = 0.9995
+        self.epsilon_decay = 0.995
         self.epsilon_min = 0.1
 
+        self.tau = 0.005  # soft update factor
+
+        self.action_dim = action_dim
+
     def select_action(self, state):
-        if np.random.rand() < self.epsilon:
-            return np.random.randint(self.action_dim)
+
+        if random.random() < self.epsilon:
+            return random.randrange(self.action_dim)
 
         state = torch.FloatTensor(state).unsqueeze(0).to(self.device)
         with torch.no_grad():
-            q_values = self.q_network(state)
+            q_values = self.policy_net(state)
 
         return torch.argmax(q_values).item()
 
@@ -56,27 +61,34 @@ class DQNAgent:
         states, actions, rewards, next_states, dones = replay_buffer.sample(batch_size)
 
         states = torch.FloatTensor(states).to(self.device)
-        actions = torch.LongTensor(actions).to(self.device)
-        rewards = torch.FloatTensor(rewards).to(self.device)
+        actions = torch.LongTensor(actions).unsqueeze(1).to(self.device)
+        rewards = torch.FloatTensor(rewards).unsqueeze(1).to(self.device)
         next_states = torch.FloatTensor(next_states).to(self.device)
-        dones = torch.FloatTensor(dones).to(self.device)
+        dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
-        q_values = self.q_network(states)
-        q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
+        current_q = self.policy_net(states).gather(1, actions)
 
         with torch.no_grad():
-            next_q_values = self.target_network(next_states)
-            max_next_q = torch.max(next_q_values, dim=1)[0]
-            target_q = rewards + self.gamma * max_next_q * (1 - dones)
+            max_next_q = self.target_net(next_states).max(1)[0].unsqueeze(1)
+            target_q = rewards + (1 - dones) * self.gamma * max_next_q
 
-        loss = nn.MSELoss()(q_values, target_q)
+        loss = self.criterion(current_q, target_q)
 
         self.optimizer.zero_grad()
         loss.backward()
+
+        # ✅ Gradient clipping
+        torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), 1.0)
+
         self.optimizer.step()
 
+        # ✅ Soft update
+        for target_param, policy_param in zip(self.target_net.parameters(),
+                                               self.policy_net.parameters()):
+            target_param.data.copy_(
+                self.tau * policy_param.data + (1.0 - self.tau) * target_param.data
+            )
+
+        # Epsilon decay
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
-
-    def update_target(self):
-        self.target_network.load_state_dict(self.q_network.state_dict())
