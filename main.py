@@ -1,72 +1,50 @@
-import os
-import sys
-import traci
+from env.traffic_env import TrafficEnv
+from agents.dqn_agent import DQNAgent
+from memory.replay_buffer import ReplayBuffer
 
-print("Main file executed")
+import numpy as np
 
-# Check SUMO_HOME
-if "SUMO_HOME" in os.environ:
-    tools = os.path.join(os.environ["SUMO_HOME"], "tools")
-    sys.path.append(tools)
-else:
-    sys.exit("Please declare SUMO_HOME environment variable")
 
-# Path to config file
-sumo_config = "sumo_env/config/simulation.sumocfg"
+if __name__ == "__main__":
 
-# Use SUMO without GUI for control
-sumo_binary = "sumo"
+    env = TrafficEnv()
+    env.start()
 
-# Start SUMO in TraCI mode
-traci.start([
-    sumo_binary,
-    "-c", sumo_config,
-    "--step-length", "1"
-])
+    # Since state = [vehicle_count, avg_wait]
+    state_dim = 2
 
-print("SUMO started successfully!")
+    # We defined 4 traffic light phases
+    action_dim = 4
 
-step = 0
-max_steps = 200
+    agent = DQNAgent(state_dim, action_dim)
+    replay_buffer = ReplayBuffer(10000)
 
-while step < max_steps:
-    traci.simulationStep()
-    step += 1
+    episodes = 200
 
-    print(f"\nPython Step: {step}")
+    for episode in range(episodes):
 
-    tls_ids = traci.trafficlight.getIDList()
+        state = env.reset()
+        total_reward = 0
+        done = False
 
-    if tls_ids:
-        tls_id = tls_ids[0]
+        while not done:
 
-        # Get current phase
-        current_phase = traci.trafficlight.getPhase(tls_id)
+            action = agent.select_action(state)
+            next_state, reward, done = env.step(action)
 
-        # Get number of phases (compatible with SUMO 1.26)
-        logic = traci.trafficlight.getAllProgramLogics(tls_id)[0]
-        phase_count = len(logic.phases)
+            replay_buffer.store(state, action, reward, next_state, done)
+            agent.train(replay_buffer, batch_size=64)
 
-        # Switch phase every 50 steps
-        if step % 50 == 0:
-            new_phase = (current_phase + 1) % phase_count
-            traci.trafficlight.setPhase(tls_id, new_phase)
-            print(f"Switched to phase {new_phase}")
+            state = next_state
+            total_reward += reward
 
-        lanes = traci.trafficlight.getControlledLanes(tls_id)
-
-        total_waiting_time = 0
-        total_vehicles = 0
-
-        for lane in lanes:
-            total_waiting_time += traci.lane.getWaitingTime(lane)
-            total_vehicles += traci.lane.getLastStepVehicleNumber(lane)
+        agent.update_target()
 
         print(
-            f"Phase: {current_phase} | "
-            f"Vehicles: {total_vehicles} | "
-            f"Total Waiting Time: {total_waiting_time}"
+            f"Episode {episode+1}, "
+            f"Total Reward: {round(total_reward, 2)}, "
+            f"Epsilon: {agent.epsilon:.3f}"
         )
 
-traci.close()
-print("\nSimulation ended.")
+    env.close()
+    print("Training completed.")
