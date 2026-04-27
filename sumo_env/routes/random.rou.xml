@@ -6,9 +6,91 @@
     <output-trip-file value="../routes/random.rou.xml"/>
     <end value="1000.0"/>
 </configuration>
+
 -->
 
 <routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+
+    
+    <!-- ========================= -->
+    <!-- Vehicle Types -->
+    <!-- ========================= -->
+
+    <!-- Normal cars -->
+    <vType id="car" accel="2.6" decel="4.5" sigma="0.5"
+           length="5" maxSpeed="25" color="1,1,0"/>
+
+    <!-- 🚑 Ambulances (RED) -->
+    <vType id="ambulance" accel="2.6" decel="4.5" sigma="0.5"
+           length="5" maxSpeed="30" color="1,0,0"/>
+
+
+    <!-- ========================= -->
+    <!-- Normal Traffic (Trips) -->
+    <!-- ========================= -->
+
+    <trip id="1" type="car" depart="1" from="A0A1" to="A1B1"/>
+    <trip id="2" type="car" depart="2" from="B0B1" to="A1A0"/>
+    <trip id="3" type="car" depart="3" from="A0A1" to="A1B1"/>
+    <trip id="4" type="car" depart="4" from="B0B1" to="A1A0"/>
+
+    <!-- (keep your existing trips here if you already had 0–999 etc) -->
+
+
+    <!-- ========================= -->
+    <!-- 🚑 Emergency Vehicles -->
+    <!-- ========================= -->
+
+    <!-- Spread across simulation -->
+    <trip id="ambulance_1"  type="ambulance" depart="10"  from="A0A1" to="A1B1"/>
+    <trip id="ambulance_2"  type="ambulance" depart="15"  from="B0B1" to="A1A0"/>
+    <trip id="ambulance_3"  type="ambulance" depart="20"  from="A0A1" to="A1B1"/>
+    <trip id="ambulance_4"  type="ambulance" depart="25"  from="B0B1" to="A1A0"/>
+    <trip id="ambulance_5"  type="ambulance" depart="30"  from="A0A1" to="A1B1"/>
+
+    <trip id="ambulance_6"  type="ambulance" depart="35"  from="B0B1" to="A1A0"/>
+    <trip id="ambulance_7"  type="ambulance" depart="40"  from="A0A1" to="A1B1"/>
+    <trip id="ambulance_8"  type="ambulance" depart="45"  from="B0B1" to="A1A0"/>
+    <trip id="ambulance_9"  type="ambulance" depart="50"  from="A0A1" to="A1B1"/>
+    <trip id="ambulance_10" type="ambulance" depart="55"  from="B0B1" to="A1A0"/>
+
+    <trip id="ambulance_11" type="ambulance" depart="60"  from="A0A1" to="A1B1"/>
+    <trip id="ambulance_12" type="ambulance" depart="65"  from="B0B1" to="A1A0"/>
+    <trip id="ambulance_13" type="ambulance" depart="70"  from="A0A1" to="A1B1"/>
+    <trip id="ambulance_14" type="ambulance" depart="75"  from="B0B1" to="A1A0"/>
+    <trip id="ambulance_15" type="ambulance" depart="80"  from="A0A1" to="A1B1"/>
+
+    <trip id="ambulance_16" type="ambulance" depart="85"  from="B0B1" to="A1A0"/>
+    <trip id="ambulance_17" type="ambulance" depart="90"  from="A0A1" to="A1B1"/>
+    <trip id="ambulance_18" type="ambulance" depart="95"  from="B0B1" to="A1A0"/>
+    <trip id="ambulance_19" type="ambulance" depart="100" from="A0A1" to="A1B1"/>
+    <trip id="ambulance_20" type="ambulance" depart="105" from="B0B1" to="A1A0"/>
+
+    <trip id="ambulance_21" type="ambulance" depart="110" from="A0A1" to="A1B1"/>
+    <trip id="ambulance_22" type="ambulance" depart="115" from="B0B1" to="A1A0"/>
+    <trip id="ambulance_23" type="ambulance" depart="120" from="A0A1" to="A1B1"/>
+    <trip id="ambulance_24" type="ambulance" depart="125" from="B0B1" to="A1A0"/>
+    <trip id="ambulance_25" type="ambulance" depart="130" from="A0A1" to="A1B1"/>
+
+    <trip id="ambulance_26" type="ambulance" depart="135" from="B0B1" to="A1A0"/>
+    <trip id="ambulance_27" type="ambulance" depart="140" from="A0A1" to="A1B1"/>
+    <trip id="ambulance_28" type="ambulance" depart="145" from="B0B1" to="A1A0"/>
+    <trip id="ambulance_29" type="ambulance" depart="150" from="A0A1" to="A1B1"/>
+    <trip id="ambulance_30" type="ambulance" depart="155" from="B0B1" to="A1A0"/>
+
+    <trip id="ambulance_31" type="ambulance" depart="160" from="A0A1" to="A1B1"/>
+    <trip id="ambulance_32" type="ambulance" depart="165" from="B0B1" to="A1A0"/>
+    <trip id="ambulance_33" type="ambulance" depart="170" from="A0A1" to="A1B1"/>
+    <trip id="ambulance_34" type="ambulance" depart="175" from="B0B1" to="A1A0"/>
+    <trip id="ambulance_35" type="ambulance" depart="180" from="A0A1" to="A1B1"/>
+
+    <trip id="ambulance_36" type="ambulance" depart="185" from="B0B1" to="A1A0"/>
+    <trip id="ambulance_37" type="ambulance" depart="190" from="A0A1" to="A1B1"/>
+    <trip id="ambulance_38" type="ambulance" depart="195" from="B0B1" to="A1A0"/>
+    <trip id="ambulance_39" type="ambulance" depart="198" from="A0A1" to="A1B1"/>
+    <trip id="ambulance_40" type="ambulance" depart="199" from="B0B1" to="A1A0"/>
+
+
     <trip id="0" depart="0.00" from="A1A0" to="A0B0"/>
     <trip id="1" depart="1.00" from="B0B1" to="B0B1"/>
     <trip id="2" depart="2.00" from="B1B0" to="A0A1"/>
